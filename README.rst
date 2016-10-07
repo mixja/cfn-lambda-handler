@@ -65,6 +65,9 @@ The handler object can then be used as a decorator for various CloudFormation ev
     ...
     ...
 
+In your Lambda configuration, you specify the name of the handler object as your Lambda function handler.
+For example, if your Lambda function was defined in a file called ``my_function.py`` and you created a hander object called ``handler``, you would configure your Lambda handler as ``my_function.handler``.
+
 Polling
 ^^^^^^^
 
@@ -100,6 +103,8 @@ The following is a complete example of ensuring correct polling behaviour:
   
   import time
   from cfn_lambda_handler import Handler, CfnLambdaExecutionTimeout
+  
+  handler = Handler()
 
   def poll(event):
     # This performs some polling operation
@@ -130,7 +135,7 @@ The following is a complete example of ensuring correct polling behaviour:
 Installation
 ------------
 
-    pip install cfn_lambda_handler
+    pip install cfn-lambda-handler
 
 Requirements
 ------------

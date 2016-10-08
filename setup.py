@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name='cfn_lambda_handler',
-    version='1.0.1',
+    version='1.0.2',
     packages=[ 'cfn_lambda_handler' ],
     install_requires=[ ],
     provides=[ 'cfn_lambda_handler' ],

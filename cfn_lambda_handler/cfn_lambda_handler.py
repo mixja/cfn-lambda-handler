@@ -3,6 +3,7 @@ import time
 import logging
 import urllib2
 import boto3
+from hashlib import md5
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -20,6 +21,11 @@ def date_handler(obj):
       return obj.isoformat()
   else:
       raise TypeError
+
+def physical_resource_id(stack_id, resource_id):
+  m = md5()
+  m.update(stack_id + resource_id)
+  return m.hexdigest()
 
 def callback(url, data):
   request = urllib2.Request(
@@ -52,8 +58,13 @@ def cfn_handler(func, base_response=None):
       "LogicalResourceId": event["LogicalResourceId"],
       "Status": SUCCESS,
     }
+
+    # Set physical resource ID
     if event.get("PhysicalResourceId"):
       response["PhysicalResourceId"] = event["PhysicalResourceId"]
+    else:
+      response["PhysicalResourceId"] = physical_resource_id(event["StackId"], event["LogicalResourceId"])
+    
     if base_response:
       response.update(base_response)
     logger.debug("Received %s request with event: %s" % (event['RequestType'], json.dumps(event)))

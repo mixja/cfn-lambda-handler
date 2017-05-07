@@ -13,8 +13,8 @@ FAILED = 'FAILED'
 TIMEOUT = 300
 
 class CfnLambdaExecutionTimeout(Exception):
-  def __init__(self,*args,**kwargs):
-    Exception.__init__(self,*args,**kwargs)
+  def __init__(self,state={}):
+    self.state = state
 
 def date_handler(obj):
   if hasattr(obj, 'isoformat'):
@@ -89,6 +89,7 @@ def cfn_handler(func, base_response=None):
       logger.info("Function approaching maximum Lambda execution timeout...")
       logger.info("Invoking new Lambda function...")
       try:
+        event['EventState'] = e.state
         invoke(event, context)
       except Exception as e:
         logger.exception("Failed to invoke new Lambda function after maximum Lambda execution timeout: " + str(e))

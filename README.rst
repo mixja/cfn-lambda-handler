@@ -93,7 +93,7 @@ To use the polling capability, there are a few things you need to ensure:
 
 - Set a property on the event that captures any state that should be retained across multiple Lambda executions.  This property should be set or updated prior to invoking a new Lambda execution.  Note that this state must be serializable in a JSON format.
 
-- Determine when the Lambda function is approaching it's maximum execution time and raise a ``CfnLambdaExecutionTimeout`` exception.  This signals to the handler to invoke a new execution of the Lambda function and exit the current Lambda execution.
+- Determine when the Lambda function is approaching it's maximum execution time and raise a ``CfnLambdaExecutionTimeout`` exception, and pass any state you want to be available for the next invocation.  This signals to the handler to invoke a new execution of the Lambda function and exit the current Lambda execution.  The state you passed to the ``CfnLambdaExecutionTimeout`` will be available in the ``EventState`` property of the ``event`` object.
 
 - Ensure the Lambda function has appropriate IAM privileges to invoke a new execution of itself.
 
@@ -106,14 +106,15 @@ The following is a complete example of ensuring correct polling behaviour:
   
   handler = Handler()
 
-  def poll(event):
+  def poll(event, context):
     # This performs some polling operation
+    some_state = event['EventState']
     while True:
       # If the remaining execution time is < 20 seconds, signal the handler to invoke a new Lambda function
       if context.get_remaining_time_in_millis() < 20000:
-        # Here we capture some state in the event, which will be passed to the new invocation of the Lambda function
-        event['EventState'] = some_state
-        raise CfnLambdaExecutionTimeout()
+        # Here we raise a timeout exception, along with the state we want to persist
+        # This state is available in the EventState property of the event
+        raise CfnLambdaExecutionTimeout(some_state)
       some_state = check_complete(event)
       if some_state.complete:
         return { "Status":"SUCCESS" }
@@ -124,7 +125,7 @@ The following is a complete example of ensuring correct polling behaviour:
   def handle_create(event, context):
     # Set the maximum timeout.  Note it is greater than the current maximum 300 seconds timeout allowed for AWS Lambda
     event['Timeout'] = 1800
-    return poll(event)
+    return poll(event, context)
 
   @handler.poll
   def handle_poll(event, context):

@@ -67,7 +67,7 @@ def cfn_handler(func, base_response=None):
     
     if base_response:
       response.update(base_response)
-    logger.debug("Received %s request with event: %s" % (event['RequestType'], json.dumps(event)))
+    logger.debug("Received %s request with event: %s" % (event['RequestType'], json.dumps(event, default=date_handler)))
 
     # Add event creation time 
     event['CreationTime'] = event.get('CreationTime') or int(time.time())
@@ -106,7 +106,7 @@ def cfn_handler(func, base_response=None):
         "Reason": "Exception was raised while handling custom resource"
       })
 
-    serialized = json.dumps(response)
+    serialized = json.dumps(response, default=date_handler)
     logger.info("Responding to '%s' request with: %s" % (event['RequestType'], serialized))
     callback(event['ResponseURL'], serialized)
 

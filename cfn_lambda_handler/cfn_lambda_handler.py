@@ -3,6 +3,7 @@ import time
 import logging
 import urllib2
 import boto3
+from copy import deepcopy
 from hashlib import md5
 
 logger = logging.getLogger()
@@ -50,7 +51,15 @@ def invoke(event,context):
     InvocationType='Event',
     Payload=json.dumps(event, default=date_handler))
 
-def cfn_handler(func, base_response=None):
+def sanitize(response, secure_attributes):
+  if response.get('Data'):
+    sanitized = deepcopy(response)
+    sanitized['Data'] = {k:'*******' if k in secure_attributes else v for k,v in sanitized['Data'].iteritems() }
+    return json.dumps(sanitized, default=date_handler)
+  else:
+    return json.dumps(response, default=date_handler)
+
+def cfn_handler(func, base_response=None, secure_attributes=[]):
   def decorator(event, context):
     response = {
       "StackId": event["StackId"],
@@ -105,17 +114,18 @@ def cfn_handler(func, base_response=None):
         "Status": FAILED,
         "Reason": "Exception was raised while handling custom resource"
       })
-
     serialized = json.dumps(response, default=date_handler)
-    logger.info("Responding to '%s' request with: %s" % (event['RequestType'], serialized))
+    sanitized = sanitize(response, secure_attributes)
+    logger.info("Responding to '%s' request with: %s" % (event['RequestType'], sanitized))
     callback(event['ResponseURL'], serialized)
 
   return decorator
 
 class Handler:
-  def __init__(self, decorator=cfn_handler):
+  def __init__(self, decorator=cfn_handler, secure_attributes=[]):
     self._handlers = dict()
     self._decorator = decorator
+    self._secure_attributes = secure_attributes
 
   def __call__(self, event, context):
     request = event.get('EventStatus') or event['RequestType']
@@ -131,17 +141,17 @@ class Handler:
     return empty
 
   def create(self, func):
-    self._handlers['Create'] = self._decorator(func)
+    self._handlers['Create'] = self._decorator(func, secure_attributes=self._secure_attributes)
     return func
 
   def update(self, func):
-    self._handlers['Update'] = self._decorator(func)
+    self._handlers['Update'] = self._decorator(func, secure_attributes=self._secure_attributes)
     return func
 
   def delete(self, func):
-    self._handlers['Delete'] = self._decorator(func)
+    self._handlers['Delete'] = self._decorator(func, secure_attributes=self._secure_attributes)
     return func
 
   def poll(self, func):
-    self._handlers['Poll'] = self._decorator(func)
+    self._handlers['Poll'] = self._decorator(func, secure_attributes=self._secure_attributes)
     return func

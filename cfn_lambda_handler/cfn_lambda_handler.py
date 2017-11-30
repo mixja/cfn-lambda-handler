@@ -1,7 +1,7 @@
 import json
 import time
 import logging
-import urllib2
+import requests
 import boto3
 from copy import deepcopy
 from hashlib import md5
@@ -29,20 +29,16 @@ def physical_resource_id(stack_id, resource_id):
   return m.hexdigest()
 
 def callback(url, data):
-  request = urllib2.Request(
-    url, 
-    data=data,
-    headers={'Content-Length': len(data),'Content-Type': ''}
-  )
-  request.get_method = lambda: 'PUT'
   try:
-    urllib2.urlopen(request)
+    headers = {'Content-Type': ''}
+    r = requests.put(url, data=data, headers=headers)
+    r.raise_for_status()
     logger.debug("Request to CloudFormation succeeded")
-  except urllib2.HTTPError as e:
-    logger.error("Callback to CloudFormation failed with status %d" % e.code)
-    logger.error("Response: %s" % e.reason)
-  except urllib2.URLError as e:
-    logger.error("Failed to reach CloudFormation: %s" % e.reason)
+  except requests.exceptions.HTTPError as e:
+    logger.error("Callback to CloudFormation failed with status %d" % e.response.status_code)
+    logger.error("Response: %s" % e.response.text)
+  except requests.exceptions.RequestException as e:
+    logger.error("Failed to reach CloudFormation: %s" % e)
 
 def invoke(event,context):
   event['EventStatus'] = 'Poll'

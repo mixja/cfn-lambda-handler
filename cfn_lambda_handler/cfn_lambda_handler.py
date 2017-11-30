@@ -25,7 +25,8 @@ def date_handler(obj):
 
 def physical_resource_id(stack_id, resource_id):
   m = md5()
-  m.update(stack_id + resource_id)
+  id = (stack_id + resource_id).encode('utf-8')
+  m.update(id)
   return m.hexdigest()
 
 def callback(url, data):
@@ -50,7 +51,7 @@ def invoke(event,context):
 def sanitize(response, secure_attributes):
   if response.get('Data'):
     sanitized = deepcopy(response)
-    sanitized['Data'] = {k:'*******' if k in secure_attributes else v for k,v in sanitized['Data'].iteritems() }
+    sanitized['Data'] = {k:'*******' if k in secure_attributes else v for k,v in sanitized['Data'].items() }
     return json.dumps(sanitized, default=date_handler)
   else:
     return json.dumps(response, default=date_handler)

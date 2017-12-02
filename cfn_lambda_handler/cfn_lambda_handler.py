@@ -21,7 +21,7 @@ def date_handler(obj):
   if hasattr(obj, 'isoformat'):
     return obj.isoformat()
   elif type(obj) is bytes:
-    return str(obj,'utf-8')
+    return obj.decode('utf-8')
   else:
     return str(obj)
 

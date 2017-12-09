@@ -113,6 +113,14 @@ def cfn_handler(func, base_response=None, secure_attributes=[]):
         "Status": FAILED,
         "Reason": "Exception was raised while handling custom resource"
       })
+    # Remove any request fields that may have been added to the response
+    response.pop("ResourceProperties", None)
+    response.pop("ServiceToken", None)
+    response.pop("ResponseURL", None)
+    response.pop("RequestType", None)
+    response.pop("CreationTime", None)
+    response.pop("ResourceType", None)
+    # Log and return response
     serialized = json.dumps(response, default=date_handler)
     sanitized = sanitize(response, secure_attributes)
     logger.info("Responding to '%s' request with: %s" % (event['RequestType'], sanitized))

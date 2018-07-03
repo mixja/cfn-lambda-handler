@@ -121,9 +121,6 @@ def cfn_handler(func, base_response=None, secure_attributes=[]):
     response.pop("RequestType", None)
     response.pop("CreationTime", None)
     response.pop("ResourceType", None)
-    # Log and return response
-    if secure_attributes:
-      response['NoEcho'] = True
     serialized = json.dumps(response, default=date_handler)
     sanitized = sanitize(response, secure_attributes)
     logger.info("Responding to '%s' request with: %s" % (event['RequestType'], sanitized))

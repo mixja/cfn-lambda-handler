@@ -67,6 +67,22 @@ def cfn_handler(func, base_response=None, secure_attributes=[]):
       "Status": SUCCESS,
     }
 
+    # Get stack status if enabled
+    if event['RequestType'] in ['Update', 'Delete']:
+      cfn_status = ('UNKNOWN','UNKNOWN')
+      try:
+        cfn_status = next((
+          (stack.get('StackStatus','UNKNOWN'),stack.get('StackStatusReason','UNKNOWN'))
+          for stack in boto3.client('cloudformation').describe_stacks(
+            StackName=event['StackId']
+          )['Stacks']
+        ), cfn_status)
+      except Exception as e:
+        logger.info("Exception raised getting stack status - have you granted DescribeStacks permissions?")
+      finally:
+        event['StackStatus'] = cfn_status[0]
+        event['StackStatusReason'] = cfn_status[1]
+
     # Set physical resource ID
     if event.get("PhysicalResourceId"):
       response["PhysicalResourceId"] = event["PhysicalResourceId"]
@@ -121,6 +137,8 @@ def cfn_handler(func, base_response=None, secure_attributes=[]):
     response.pop("RequestType", None)
     response.pop("CreationTime", None)
     response.pop("ResourceType", None)
+    response.pop("StackStatus", None)
+    response.pop("StackStatusReason", None)
     serialized = json.dumps(response, default=date_handler)
     sanitized = sanitize(response, secure_attributes)
     logger.info("Responding to '%s' request with: %s" % (event['RequestType'], sanitized))

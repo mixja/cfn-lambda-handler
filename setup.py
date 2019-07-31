@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name='cfn_lambda_handler',
-    version='1.2.1',
+    version='1.3.0',
     packages=[ 'cfn_lambda_handler' ],
     install_requires=[ 'requests' ],
     provides=[ 'cfn_lambda_handler' ],
@@ -25,6 +25,8 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'License :: OSI Approved :: ISC License (ISCL)',
     ],
 )

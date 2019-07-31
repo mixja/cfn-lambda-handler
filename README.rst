@@ -68,10 +68,25 @@ The handler object can then be used as a decorator for various CloudFormation ev
 In your Lambda configuration, you specify the name of the handler object as your Lambda function handler.
 For example, if your Lambda function was defined in a file called ``my_function.py`` and you created a hander object called ``handler``, you would configure your Lambda handler as ``my_function.handler``.
 
+Stack Status
+^^^^^^^^^^^^
+
+For update and delete operations, the handler attempts to query the current status of the CloudFormation stack to determine the current stack status.  This is useful for detecting if your CloudFormation stack is in a rollback state.
+
+The following lists the possible stack status values:
+
+``CREATE_IN_PROGRESS | CREATE_FAILED | CREATE_COMPLETE | ROLLBACK_IN_PROGRESS | ROLLBACK_FAILED | ROLLBACK_COMPLETE | DELETE_IN_PROGRESS | DELETE_FAILED | DELETE_COMPLETE | UPDATE_IN_PROGRESS | UPDATE_COMPLETE_CLEANUP_IN_PROGRESS | UPDATE_COMPLETE | UPDATE_ROLLBACK_IN_PROGRESS | UPDATE_ROLLBACK_FAILED | UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS | UPDATE_ROLLBACK_COMPLETE | REVIEW_IN_PROGRESS``
+
+The status and status reasons are then attached as ``StackStatus`` and ``StackStatusReason`` keys on the ``event`` object passed to your custom resource handler.  
+
+If the status/status reason cannot be determined for any reason, a value of ``UNKNOWN`` will be set.
+
+Note that obtaining the stack status requires to you to grant the ``cloudformation:DescribeStacks`` permission to your custom resource function.
+
 Polling
 ^^^^^^^
 
-A special 'Poll' decorator provides the ability to extend a CloudFormation custom resource operation longer than current Aws Lambda execution limits.  The poll decorator will be called for any Lambda executions subsequent to the initial CloudFormation Lambda event.
+A special ``Poll`` decorator provides the ability to extend a CloudFormation custom resource operation longer than current Aws Lambda execution limits.  The poll decorator will be called for any Lambda executions subsequent to the initial CloudFormation Lambda event.
 
 To use this functionality, you decorate an appropriate function with the poll action:
 

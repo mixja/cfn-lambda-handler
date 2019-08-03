@@ -83,6 +83,29 @@ If the status/status reason cannot be determined for any reason, a value of ``UN
 
 Note that obtaining the stack status requires to you to grant the ``cloudformation:DescribeStacks`` permission to your custom resource function.
 
+Dynamic References
+^^^^^^^^^^^^^^^^^^
+
+`CloudFormation dynamic references`_ for AWS Secrets Manager references are supported by default.  
+
+If any property passed to a CloudFormation custom resource matches the regular expression ``{{resolve:secretsmanager:.*}}``, then the handler will attempt to resolve the dynamic reference.
+
+This feature requires your custom resources to have the following IAM permissions:
+
+- ``secretsmanager:GetSecretValue`` for all secrets referenced
+- ``kms:Decrypt`` for any secrets encrypted with a custom KMS key
+
+You can disable this functionality by setting the ``resolve_secrets`` attribute when creating the handler:
+
+.. code:: python
+  
+  from cfn_lambda_handler import Handler  
+  handler = Handler(resolve_secrets=False)
+  ...
+  ...
+
+.. _CloudFormation dynamic references : https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html
+
 Polling
 ^^^^^^^
 

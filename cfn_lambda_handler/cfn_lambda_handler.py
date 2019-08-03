@@ -3,6 +3,7 @@ import time
 import logging
 import requests
 import boto3
+import re
 from copy import deepcopy
 from hashlib import md5
 
@@ -12,6 +13,8 @@ logger.setLevel(logging.INFO)
 SUCCESS = 'SUCCESS'
 FAILED = 'FAILED'
 TIMEOUT = 300
+
+secretsmanager = boto3.client('secretsmanager')
 
 class CfnLambdaExecutionTimeout(Exception):
   def __init__(self,state={}):
@@ -50,6 +53,64 @@ def invoke(event,context):
     InvocationType='Event',
     Payload=json.dumps(event, default=date_handler))
 
+def index_exists(items, i):
+  return (0 <= i < len(items)) or (-len(items) <= i < 0)
+
+def resolve(reference):
+  try:
+    resolver = reference.lstrip('{{').rstrip('}}')
+    parts = resolver.split(':')
+    if len(parts) < 3:
+      return reference
+    if parts[2] == 'arn':
+      secret_id = ':'.join(parts[2:9])
+      json_key_index = 10
+    else:
+      secret_id = parts[2]
+      json_key_index = 4
+    # Get secret
+    if not index_exists(parts, json_key_index-1) or parts[json_key_index] == '':
+      # resolve secret_id and return full secret string
+      secret = secretsmanager.get_secret_value(SecretId=secret_id)['SecretString']
+    elif index_exists(parts, json_key_index+1):
+      # resolve secret_id[json_key] with version stage or id
+      version = parts[json_key_index+1]
+      config = {
+        'SecretId': secret_id,
+        'VersionStage': version
+      } if version in ['AWSCURRENT','AWSPREVIOUS'] else {
+        'SecretId': secret_id,
+        'VersionId': version
+      }
+      secret = json.loads(
+        secretsmanager.get_secret_value(**config)['SecretString']
+      )[parts[json_key_index]]
+    else:
+      # resolve secret_id[json_key]
+      secret = json.loads(
+        secretsmanager.get_secret_value(SecretId=secret_id)['SecretString']
+      )[parts[json_key_index]]
+    return secret
+  except:
+    # Return reference if there is an exception
+    return reference
+
+def walk(data):
+  result = {}
+  if type(data) is dict:
+    for k,v in data.items():
+      result[k] = walk(v)
+  elif type(data) is list:
+    items = []
+    for item in data:
+      items.append(walk(item))
+    return items
+  elif type(data) is str and re.match(r'{{resolve:secretsmanager:.*}}',data):
+    return resolve(data)
+  else:
+    return data
+  return result
+
 def sanitize(response, secure_attributes):
   if response.get('Data'):
     sanitized = deepcopy(response)
@@ -58,7 +119,7 @@ def sanitize(response, secure_attributes):
   else:
     return json.dumps(response, default=date_handler)
 
-def cfn_handler(func, base_response=None, secure_attributes=[]):
+def cfn_handler(func, base_response=None, secure_attributes=[], resolve_secrets=True):
   def decorator(event, context):
     response = {
       "StackId": event["StackId"],
@@ -66,6 +127,10 @@ def cfn_handler(func, base_response=None, secure_attributes=[]):
       "LogicalResourceId": event["LogicalResourceId"],
       "Status": SUCCESS,
     }
+
+    # Resolve secrets if enabled
+    if resolve_secrets:
+      event['ResourceProperties'] = walk(event['ResourceProperties'])
 
     # Get stack status if enabled
     if event['RequestType'] in ['Update', 'Delete']:
@@ -147,10 +212,11 @@ def cfn_handler(func, base_response=None, secure_attributes=[]):
   return decorator
 
 class Handler:
-  def __init__(self, decorator=cfn_handler, secure_attributes=[]):
+  def __init__(self, decorator=cfn_handler, secure_attributes=[], resolve_secrets=True):
     self._handlers = dict()
     self._decorator = decorator
     self._secure_attributes = secure_attributes
+    self._resolve_secrets = resolve_secrets
 
   def __call__(self, event, context):
     request = event.get('EventStatus') or event['RequestType']
@@ -166,17 +232,33 @@ class Handler:
     return empty
 
   def create(self, func):
-    self._handlers['Create'] = self._decorator(func, secure_attributes=self._secure_attributes)
+    self._handlers['Create'] = self._decorator(
+      func,
+      secure_attributes=self._secure_attributes,
+      resolve_secrets=True
+    )
     return func
 
   def update(self, func):
-    self._handlers['Update'] = self._decorator(func, secure_attributes=self._secure_attributes)
+    self._handlers['Update'] = self._decorator(
+      func,
+      secure_attributes=self._secure_attributes,
+      resolve_secrets=True
+    )
     return func
 
   def delete(self, func):
-    self._handlers['Delete'] = self._decorator(func, secure_attributes=self._secure_attributes)
+    self._handlers['Delete'] = self._decorator(
+      func,
+      secure_attributes=self._secure_attributes,
+      resolve_secrets=True
+    )
     return func
 
   def poll(self, func):
-    self._handlers['Poll'] = self._decorator(func, secure_attributes=self._secure_attributes)
+    self._handlers['Poll'] = self._decorator(
+      func,
+      secure_attributes=self._secure_attributes,
+      resolve_secrets=True
+    )
     return func
